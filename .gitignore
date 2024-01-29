@@ -1,0 +1,20 @@
+# Dependency directories
+node_modules/
+
+# Environment files
+.env
+
+# Build artifacts
+build/
+dist/
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+.tmp
+
+# Configurations for local development
+config.local.js
