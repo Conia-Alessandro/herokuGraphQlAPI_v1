@@ -1,19 +1,22 @@
-import express from 'express';
-//import {graphqlHTTP} from 'express-graphql';
-//import schema from "./data/schema";
-//import resolvers from "./data/resolvers";
+const express = require('express');
+const { ApolloServer, gql } = require('apollo-server-express');
+const resolvers = require('./data/resolvers.js');
+const typeDefs = require("./data/schema.js");
 
-const app = express();
+const PORT = process.env.PORT || 8080;
 
-const PORT = 8080;
-/*
-const root = resolvers;
+const server = new ApolloServer({ typeDefs, resolvers });
 
-app.use("/graphql", graphqlHTTP({
-    schema,
-    rootValue: root,
-    graphiql: true,
-}));
+async function startApolloServer() {
+    await server.start();
 
-*/
-app.listen(PORT, () =>{ console.log(`server running on port localhost:${PORT}/graphql`)})
+    const app = express();
+    server.applyMiddleware({ app });
+
+    await new Promise(resolve => app.listen({ port: PORT }, resolve));
+    console.log(`Server running at http://localhost:${PORT}${server.graphqlPath}`);
+}
+
+startApolloServer().catch(error => {
+    console.error('Error starting server:', error);
+});
