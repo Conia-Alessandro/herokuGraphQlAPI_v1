@@ -26,10 +26,39 @@ mongoose.connect(MONGODB_URI, mongooseOptions)
         console.error('MongoDB connection error:', error);
     });
 
-// Define the schema
+// Define the schema for Staff
+const staffSchema = new mongoose.Schema({
+    id: String,
+    name: String,
+    photo: String,
+    biography: String,
+    supervisor: Boolean,
+    departments: [String],
+    contacts: [{
+        type: String,
+        value: String,
+        preferredTime: String
+    }]
+});
+
+// Define the schema for Shift
+const shiftSchema = new mongoose.Schema({
+    id: String,
+    brief: String,
+    date: String,
+    time: String,
+    endTime: String,
+    actualEndTime: String,
+    coverage: [staffSchema]
+});
+
+// Define the schema for Campaign
 const campaignSchema = new mongoose.Schema({
     name: String,
-    description: String,
+    description: {
+        type: String,
+        default: "A Campaign with a set of available shifts"
+    },
     thumbnail: {
         type: String,
         default: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
@@ -38,13 +67,13 @@ const campaignSchema = new mongoose.Schema({
         type: String,
         enum: ['AMBASSADORS', 'HELPERS', 'MENTORS']
     },
-    supervisingStaff: [String],
-    casualStaff: [String],
+    supervisingStaff: [staffSchema],
+    casualStaff: [staffSchema],
     available: {
         type: Boolean,
         default: true
     },
-    shifts: [Object],
+    shifts: [shiftSchema],
     postedDate: {
         type: Date,
         default: getUKTime
@@ -54,5 +83,6 @@ const campaignSchema = new mongoose.Schema({
 
 // Define the model
 const Campaigns = mongoose.model("campaigns", campaignSchema);
+//export the model
+module.exports = Campaigns;
 
-module.exports =  Campaigns;
