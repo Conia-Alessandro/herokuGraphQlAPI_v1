@@ -1,7 +1,7 @@
 const { buildSchema } = require("graphql");
 //might use gql instead of buildSchema
-
 const schema = buildSchema(`
+    scalar Date
     """
     A Single campaign object
     """
@@ -14,8 +14,10 @@ const schema = buildSchema(`
         description: String
         "a campaign thumbnail image"
         thumbnail: String
-        "a campaign's department"
-        department: Department!#
+        "the campaign type, for most common campaigns"
+        campaignType: CampaignType!
+        "a campaign's main department, this is used to distinguish campaigns between eachother"
+        department: Department!
         "a campaign's array of supervising staff"
         supervisingStaff: [Staff!]!
         "a campaign's array of casual working force"
@@ -26,21 +28,33 @@ const schema = buildSchema(`
         shifts: [Shift!]!
         "a campaign's posted date, by default today's date"
         postedDate: Date
+        "a campaign's end date, if present"
+        endDate: Date
         "a campaign's date that signifies the last meaningful update of information"
         updatedAt: Date
     }
     """
-    Enum representing different departments
+    Enum representing all sub-department a casual worker or staff is employed into
+    """
+    enum SubDepartment{
+        AMBASSADOR
+        HELPER
+        MENTOR
+    }
+    """
+    Enum representing the department a campaign comes from
     """
     enum Department{
-        AMBASSADORS
-        HELPERS
-        MENTORS
+        MARKETING
+        EVENTS
+        RECRUITING
+        STUDENTLIFE
+        STRATEGY
     }
     """
     Enum representing different preferred times for contact
     """
-    enum PreferredTime{
+    enum PreferredTimeSlot{
         MORNING
         AFTERNOON
         EVENING
@@ -55,24 +69,45 @@ const schema = buildSchema(`
         WORKEMAIL
     }
     """
+    Enum representing common types of Campaigns
+    """
+    enum CampaignType{
+        ONCAMPUSACTIVITY
+        OPENDAY
+        FRESHERS
+        CAMPUSTOUR
+        VIRTUALTOUR
+        ONLINEEVENT
+        ONLINEWEBINAR
+        EXAMPERIOD
+        STUDYPERIOD
+        HOLIDAYIN
+        KEEPINTOUCH
+        SOCIETIESMEETUP
+        FESTIVALOFCULTURES
+    }
+    """
     Type representing a singular staff member
     """
     type Staff{
         id: ID!
         name: String!
+        surname: String!
         photo: String
         biography: String
         supervisor: Boolean
-        departments: [Department!]!
+        mainDepartment: Department
+        casualWorkDepartments: [SubDepartment!]!
         contacts: [ContactInformation!]!
     }
     """
     Type representing a member of staff's contact information
     """
     type ContactInformation{
-        type: ContactType!
+        contactType: ContactType!
         value: String!
-        preferredTime: PreferredTime!
+        preferredTimeSlot: PreferredTimeSlot!
+        preferredTime: String
     }
     """ 
     Type representing a shift object
@@ -81,8 +116,8 @@ const schema = buildSchema(`
         id: ID!
         brief: String!
         date: Date!
-        time: String!
-        endTime: String!
+        commence: String!
+        conclusion: String!
         actualEndTime: String
         coverage: [Staff!]!
     }
@@ -94,25 +129,31 @@ const schema = buildSchema(`
         getCampaign(id: ID): Campaign
         "an operation to return all campaign objects present"
         getAllCampaigns: [Campaign]
+        "an operation to return the staff with specific name"
+        getStaffByName(name: String!): [Staff]
+        "an operation to return all staff members"
+        getAllStaff: [Staff]
     }
     """
     the input type required for a mutation in contact information
     """
     input ContactInformationInput{
-        type: ContactType!
+        contactType: ContactType!
         value: String!
-        preferredTime: PreferredTime!
+        preferredTimeSlot: PreferredTimeSlot!
+        preferredTime: String
     }
     """
     the input type required for a mutation in staff information
     """
     input StaffInput{
-        id: ID!
         name: String!
+        surname: String!
         photo: String
         biography: String
         supervisor: Boolean
-        departments: [Department!]!
+        mainDepartment: Department
+        casualWorkDepartments: [SubDepartment!]!
         contacts: [ContactInformationInput!]!
     }
     """
@@ -121,9 +162,9 @@ const schema = buildSchema(`
     input ShiftInput{
         id: ID
         brief: String!
-        date: String!
-        time: String!
-        endTime: String!
+        date: Date!
+        commence: String!
+        conclusion: String!
         actualEndTime: String
         coverage: [StaffInput!]!
     }
@@ -135,19 +176,23 @@ const schema = buildSchema(`
         name: String!
         description: String
         thumbnail: String
+        campaignType: CampaignType!
         department: Department!
-        supervisingStaff: [StaffInput!]!
-        casualStaff: [StaffInput]!
+        supervisingStaff: [ID!]!
         available: Boolean
         shifts: [ShiftInput!]!
         postedDate: Date
+        endDate: Date!
         updatedAt: Date
     }
     """
     the mutation type, used to mutate (create/update/delete) information
     """
     type Mutation{
+        "a mutation to create a new campaign"
         createCampaign(input: CampaignInput): Campaign
+        "a mutation to create a new Member of staff"
+        addStaff(input: StaffInput): Staff
     }
 `)
 
