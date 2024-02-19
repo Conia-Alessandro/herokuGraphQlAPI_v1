@@ -1,36 +1,49 @@
 const express = require('express');
-const { ApolloServer} = require('apollo-server-express');
+const { ApolloServer } = require('apollo-server-express');
 const mongoose = require("mongoose");
-const resolvers = require('./data/resolvers.js');
-const typeDefs = require("./data/schema.js");
+const { SecretClient } = require("@azure/keyvault-secrets");
+const { DefaultAzureCredential } = require("@azure/identity");
+
 require('dotenv').config();
 const PORT = process.env.PORT || 8080;
 
-const server = new ApolloServer({ typeDefs, resolvers });
+async function retrieveSecretsAndStartServer() {
+    try {
+        const server = new ApolloServer({
+            typeDefs: require("./data/schema.js"),
+            resolvers: require('./data/resolvers.js')
+        });
 
-//MONGODB Required Strings
-const MONGODB_USERNAME = process.env.MONGODB_USERNAME || 'campaignsCH1EF';
-const MONGODB_PASSWORD = process.env.MONGODB_PASSWORD || 'CH13Fdevelopment';
+        const vaultUrl = "https://keyfortress.vault.azure.net/";
+        const credential = new DefaultAzureCredential();
+        const secretClient = new SecretClient(vaultUrl, credential);
 
-// Construct the connection string with authentication options
-//mongodb://campaignsCH1EF:CH13Fdevelopment@localhost:27017/?authMechanism=SCRAM-SHA-256&authSource=campaigns
-const connectionString = `mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@127.0.0.1:27017/campaigns?authMechanism=SCRAM-SHA-256&authSource=campaigns`;
+        const MONGODB_USERNAME_SECRET_NAME = process.env.MONGODB_USERNAME_SECRET_NAME;
+        const MONGODB_PASSWORD_SECRET_NAME = process.env.MONGODB_PASSWORD_SECRET_NAME;
 
-//const connectionString = "mongodb://127.0.0.1:27017/campaigns";
-//debug
-mongoose.set('debug', true);
+        const [usernameSecret, passwordSecret] = await Promise.all([
+            secretClient.getSecret(MONGODB_USERNAME_SECRET_NAME),
+            secretClient.getSecret(MONGODB_PASSWORD_SECRET_NAME)
+        ]);
 
-// Establish MongoDB connection
-// to: mongodb://campaignsCH1EF:CH13Fdevelopment@localhost:27017/
-mongoose.connect(connectionString)
-    .then(() => {
+        const MONGODB_USERNAME = usernameSecret.value;
+        const MONGODB_PASSWORD = passwordSecret.value;
+
+        const connectionString = `mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@127.0.0.1:27017/campaigns?authMechanism=SCRAM-SHA-256&authSource=campaigns`;
+
+        mongoose.set('debug', true);
+
+        await mongoose.connect(connectionString);
+
         console.log('MongoDB connected successfully');
-    })
-    .catch((error) => {
-        console.error('MongoDB connection error:', error);
-    });
 
-async function startApolloServer() {
+        await startApolloServer(server);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function startApolloServer(server) {
     await server.start();
 
     const app = express();
@@ -40,6 +53,6 @@ async function startApolloServer() {
     console.log(`Server running at http://localhost:${PORT}${server.graphqlPath}`);
 }
 
-startApolloServer().catch(error => {
+retrieveSecretsAndStartServer().catch(error => {
     console.error('Error starting server:', error);
 });
