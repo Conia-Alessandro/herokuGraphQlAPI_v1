@@ -67,19 +67,49 @@ const resolvers = {
           throw err;
         });
     },
-    getStaffByName: ({ name }) => {
-      if (!name) {
-        throw new Error('Name parameter is missing.');
+    getStaffByName: async (_, { name }) => {
+      try {
+        if (!name) {
+          throw new Error('Name parameter is missing.');
+        }
+        const staff = await Staff.find({ name: name }).exec();
+        return staff; // Return the found staff which could be an empty array
+      } catch (error) {
+        console.error('Error fetching staff by name:', error);
+        throw error; // Re-throw the error to be handled by Apollo Server
       }
-      console.log("name: ",name);
-      return Staff.find({ name: name }).exec()
-        .then(staff => {
-          return staff;
-        })
-        .catch(err => {
-          throw err;
-        });
     },
+    getAllSupervisors: async (_, { supervisor }) => {
+      try {
+        if (!supervisor) {
+          throw new Error('Supervisor parameter is missing although required');
+        }
+        const super_staff = await Staff.find({ supervisor: supervisor }).exec();
+        return super_staff; //return found staff
+      } catch (err) {
+        console.error("error fetching supervising staff ", err);
+        throw error;
+      }
+    },
+    getStaffByPersonalDetails: async (_, { name, surname }) => {
+      try {
+        if (!name || !surname) {
+          throw new Error('Name and/or surname parameter is missing although required');
+        }
+        const specificStaff = await Staff.findOne({ name: name, surname: surname }).exec();
+        
+        // Check if specificStaff is null or undefined, and handle appropriately
+        if (!specificStaff) {
+          // return a response for the case where specificStaff is null or undefined
+          throw new Error('Staff not found');
+        }
+    
+        return specificStaff; // Return found staff
+      } catch (err) {
+        console.error("Error fetching specific staff ", err);
+        throw err;
+      }
+    },    
     getAllStaff: () => {
       return Staff.find({}).exec()
         .then(staff => {
@@ -88,7 +118,7 @@ const resolvers = {
         .catch(err => {
           throw err;
         });
-  },
+    },
   },
   Mutation: {
     createCampaign: async ({ input }) => {
@@ -145,30 +175,30 @@ const resolvers = {
     },
     addStaff: async (_, { input }) => {
       try {
-          const { name, surname, photo, biography, supervisor, mainDepartment, casualWorkDepartments, contacts } = input;
-  
-          // Create a new Staff object
-          const newStaff = new Staff({
-              name,
-              surname,
-              photo,
-              biography,
-              supervisor,
-              mainDepartment,
-              casualWorkDepartments,
-              contacts
-          });
-  
-          // Save new staff to the database directly through promise
-          const savedStaff = await newStaff.save();
-          console.log('New staff saved:', savedStaff);
-          return savedStaff;
+        const { name, surname, photo, biography, supervisor, mainDepartment, casualWorkDepartments, contacts } = input;
+
+        // Create a new Staff object
+        const newStaff = new Staff({
+          name,
+          surname,
+          photo,
+          biography,
+          supervisor,
+          mainDepartment,
+          casualWorkDepartments,
+          contacts
+        });
+
+        // Save new staff to the database directly through promise
+        const savedStaff = await newStaff.save();
+        console.log('New staff saved:', savedStaff);
+        return savedStaff;
       } catch (err) {
-          console.error('Error adding staff:', err);
-          throw new Error(`Failed to add staff: ${err.message}`);
+        console.error('Error adding staff:', err);
+        throw new Error(`Failed to add staff: ${err.message}`);
       }
-  }
-    
+    }
+
     //modify campaign also updates the updatedAt automatically to current date (view GetUkDate)
   }
 }

@@ -109,6 +109,18 @@ const schema = buildSchema(`
         preferredTimeSlot: PreferredTimeSlot!
         preferredTime: String
     }
+    """
+    Enum representing the shift Status
+    """
+    enum ShiftStatus{
+        OPEN
+        SUBMITTED
+        REQUESTED
+        PENDING
+        AWAITINGAPPROVAL
+        ASSIGNED
+        ACCEPTED
+    }
     """ 
     Type representing a shift object
     """
@@ -131,6 +143,10 @@ const schema = buildSchema(`
         getAllCampaigns: [Campaign]
         "an operation to return the staff with specific name"
         getStaffByName(name: String!): [Staff]
+        "an operation to find a specific member of staff"
+        getStaffByPersonalDetails(name: String!, surname: String!): Staff
+        "an operation to return all supervising staff"
+        getAllSupervisors(supervisor: Boolean): [Staff]
         "an operation to return all staff members"
         getAllStaff: [Staff]
     }

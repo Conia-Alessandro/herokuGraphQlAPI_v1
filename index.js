@@ -12,7 +12,6 @@ const server = new ApolloServer({ typeDefs, resolvers });
 const MONGODB_USERNAME = process.env.MONGODB_USERNAME || 'campaignsCH1EF';
 const MONGODB_PASSWORD = process.env.MONGODB_PASSWORD || 'CH13Fdevelopment';
 
-console.log(`A bunch of enviromental variables: ${process.env.MONGODB_URI} and ${process.env.INSTITUTIONNAME}`);
 // Construct the connection string with authentication options
 //mongodb://campaignsCH1EF:CH13Fdevelopment@localhost:27017/?authMechanism=SCRAM-SHA-256&authSource=campaigns
 const connectionString = `mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@127.0.0.1:27017/campaigns?authMechanism=SCRAM-SHA-256&authSource=campaigns`;
