@@ -55,9 +55,20 @@ const shiftSchema = new mongoose.Schema({
     commence: String,
     conclusion: String,
     actualEndTime: String,
-    coverage: [staffSchema]
+    coverage: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references to staff instead of directly storing it as before: [staffSchema]
+    applications: [{type:mongoose.Schema.Types.ObjectId , ref: 'Application'}] // References to Application instead of direct storing
 });
 
+// Define the schema for a Shift Application
+
+const applicationSchema = new mongoose.Schema({
+    casualStaff : { type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}, //references to staff
+    approvingStaff: [{type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references an array of staff
+    applicationStatus: {
+        type: String,
+        enum: ["OPEN","APPLIED","PENDING","ASSIGNED","REJECTED"]
+    }
+})
 // Define the schema for Campaign
 const campaignSchema = new mongoose.Schema({
     name: String,
@@ -77,13 +88,13 @@ const campaignSchema = new mongoose.Schema({
         type: String,
         enum: ['ONCAMPUSACTIVITY', 'OPENDAY', 'FRESHERS', 'CAMPUSTOUR', 'VIRTUALTOUR', 'ONLINEEVENT', 'ONLINEWEBINAR', 'EXAMPERIOD', 'STUDYPERIOD', 'HOLIDAYIN', 'KEEPINTOUCH', 'SOCIETIESMEETUP', 'FESTIVALOFCULTURES']
     },
-    supervisingStaff: [staffSchema],
-    casualStaff: [staffSchema],
+    supervisingStaff: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references to staff instead of directly storing it
+    casualStaff: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references to staff instead of directly storing it
     available: {
         type: Boolean,
         default: true
     },
-    shifts: [shiftSchema],
+    shifts: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Shifts'}], //references to Shifts instead of directly storing it [shiftSchema]
     postedDate: {
         type: Date,
         default: getUKTime(0)
@@ -99,5 +110,6 @@ const campaignSchema = new mongoose.Schema({
 const Campaigns = mongoose.model("campaigns", campaignSchema);
 const Staff = mongoose.model("staffs", staffSchema);
 const Shifts = mongoose.model("shifts", shiftSchema);
+const Applications = mongoose.model("applications",applicationSchema);
 // Export both models
-module.exports = { Campaigns, Staff, Shifts };
+module.exports = { Campaigns, Staff, Shifts, Applications };

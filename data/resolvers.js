@@ -1,5 +1,5 @@
 // Imports both models from dbConnectors
-const { Campaigns, Staff, Shifts } = require("./dbConnectors");
+const { Campaigns, Staff, Shifts ,Applications} = require("./dbConnectors"); //Now includes applications as well
 const { GraphQLScalarType, Kind } = require('graphql');
 
 const DateScalar = new GraphQLScalarType({
@@ -121,6 +121,7 @@ const resolvers = {
     },
   },
   Mutation: {
+    //Mutation TO BE UPDATED
     createCampaign: async ({ input }) => {
       //casual staff was omitted  as it's "calculated by a separated function"
       const newCampaign = new Campaigns({

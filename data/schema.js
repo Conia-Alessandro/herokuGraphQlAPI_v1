@@ -111,15 +111,28 @@ const schema = buildSchema(`
     }
     """
     Enum representing the shift Status
+    recently changed to
+    "OPEN","APPLIED","PENDING","ASSIGNED", "REJECTED"
     """
-    enum ShiftStatus{
+    enum ApplicationStatus{
         OPEN
-        SUBMITTED
-        REQUESTED
+        APPLIED
         PENDING
-        AWAITINGAPPROVAL
         ASSIGNED
-        ACCEPTED
+        REJECTED
+    }
+    """
+    Type representing a Shift application between the casual worker and his supervisor
+    """
+    type Application{
+        "the application id"
+        id: ID!
+        "the casual worker applied / to apply"
+        casualWorker: Staff
+        "the Staff responsible to approve , has to be at least one person"
+        approvingStaff: [Staff!]!
+        "the status of the application, an Enum with different values"
+        applicationStatus: ApplicationStatus!
     }
     """ 
     Type representing a shift object
@@ -130,8 +143,12 @@ const schema = buildSchema(`
         date: Date!
         commence: String!
         conclusion: String!
+        "the actual end time of the shift, this is used in retrospection"
         actualEndTime: String
+        "the array of Staff covering the shift"
         coverage: [Staff!]!
+        "The list of applications made for that shift"
+        applications: [Application!]!
     }
     """
     The query type, used to retrieve data
