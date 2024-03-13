@@ -139,14 +139,13 @@ const schema = buildSchema(`
     """
     type Shift{
         id: ID!
+        reference: String!
         brief: String!
         date: Date!
         commence: String!
         conclusion: String!
         "the actual end time of the shift, this is used in retrospection"
         actualEndTime: String
-        "the array of Staff covering the shift"
-        coverage: [Staff!]!
         "The list of applications made for that shift"
         applications: [Application!]!
     }
@@ -166,6 +165,10 @@ const schema = buildSchema(`
         getAllSupervisors(supervisor: Boolean): [Staff]
         "an operation to return all staff members"
         getAllStaff: [Staff]
+        "an operation to return a shift by id"
+        getShift(id: ID): Shift
+        "an operation to return a shift by its unique reference name"
+        getShiftByReference(reference: String): Shift
     }
     """
     the input type required for a mutation in contact information
@@ -194,12 +197,12 @@ const schema = buildSchema(`
     """
     input ShiftInput{
         id: ID
+        reference: String
         brief: String!
         date: Date!
         commence: String!
         conclusion: String!
         actualEndTime: String
-        coverage: [StaffInput!]!
     }
     """
     the input type for a mutation in a campaign
@@ -219,6 +222,25 @@ const schema = buildSchema(`
         updatedAt: Date
     }
     """
+    This input specifically refers to a shift being added at any time that doesn't need hard coded staff coverage. Hence why it's removal
+    """
+    input addShiftInput{
+        id: ID
+        reference: String!
+        brief: String!
+        date: Date!
+        commence: String!
+        conclusion: String!
+        actualEndTime: String
+    }
+    """
+    The application input
+    """
+    input ApplicationInput{
+        id: ID
+        applicationStatus: ApplicationStatus!
+    }
+    """
     the mutation type, used to mutate (create/update/delete) information
     """
     type Mutation{
@@ -226,6 +248,12 @@ const schema = buildSchema(`
         createCampaign(input: CampaignInput): Campaign
         "a mutation to create a new Member of staff"
         addStaff(input: StaffInput): Staff
+        "a mutation to create a shift"
+        createShift(input: addShiftInput) : Shift
+        "creates an Application for a shift , in resolvers"
+        createApplication(shiftId: ID!, casualWorkerId:ID!, approvingStaffsIds:[ID!]!, input: ApplicationInput!): Application
+        "updates the application's status"
+        updateApplicationStatus(input: ApplicationInput!): Application
     }
 `)
 

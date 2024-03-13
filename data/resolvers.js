@@ -1,6 +1,7 @@
 // Imports both models from dbConnectors
-const { Campaigns, Staff, Shifts ,Applications} = require("./dbConnectors"); //Now includes applications as well
+const { Campaigns, Staff, Shifts, Applications } = require("./dbConnectors"); //Now includes applications as well
 const { GraphQLScalarType, Kind } = require('graphql');
+const mongoose = require("mongoose");
 
 const DateScalar = new GraphQLScalarType({
   name: 'Date',
@@ -9,45 +10,31 @@ const DateScalar = new GraphQLScalarType({
   // Serialize Date to a value for JSON
   serialize(value) {
     if (value instanceof Date) {
-      return value.getTime(); // Convert outgoing Date to integer for JSON
+      const day = String(value.getDate()).padStart(2, '0');
+      const month = String(value.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = value.getFullYear();
+      return `${day}/${month}/${year}`;
     }
     throw new Error('GraphQL Date Scalar serializer expected a `Date` object');
   },
 
-  // Parse a value from an integer to Date
+  // Parse a value from a string to Date
   parseValue(value) {
-    if (typeof value === 'number') {
-      return new Date(value); // Convert incoming integer to Date
-    }
-    throw new Error('GraphQL Date Scalar parser expected a `number`');
-  },
-
-  // Parse a literal string to a Date
-  parseLiteral(ast) {
-    if (ast.kind === Kind.STRING) {
-      const dateValue = ast.value; // Extract the string value from the AST
-      const parts = dateValue.split('/');
-
-      if (parts.length !== 3) {
-        throw new Error('Invalid date format. Expected format: DD/MM/YYYY');
-      }
-
+    const parts = value.split('/');
+    if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // Months are zero-indexed in JS
+      const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
       const year = parseInt(parts[2], 10);
-
-      const parsedDate = new Date(year, month, day);
-
-      if (isNaN(parsedDate.getTime())) {
-        throw new Error('Invalid date format. Expected format: DD/MM/YYYY');
-      }
-
-      return parsedDate;
+      return new Date(year, month, day);
     }
-
-    throw new Error('GraphQL Date Scalar parser expected a `string`');
+    throw new Error('GraphQL Date Scalar parser expected a `string` in format DD/MM/YYYY');
   },
 });
+
+module.exports = DateScalar;
+/**
+ * The resolver function, it defines all resolvers for the index.js file
+ */
 const resolvers = {
   Date: DateScalar,
   Query: {
@@ -58,6 +45,40 @@ const resolvers = {
           throw err;
         });
     },
+    getShift: async (_, { id }) => {
+      try {
+        const shift = await Shifts.findById(id).exec();
+        if (!shift) {
+          throw new Error("Shift not found");
+        }
+        return shift;
+      } catch (err) {
+        throw err;
+      }
+    },
+    getShiftByReference: async (_, { reference }) => { // using '_,' as no parent object is expected
+      try {
+        //populate the shift with applications, casualStaff and approvingStaff
+        const shift = await Shifts.findOne({ reference })
+          .populate({
+            path: 'applications',
+            populate: { path: 'casualWorker approvingStaff' }
+          })
+          .exec();
+        // Convert IDs to strings
+        shift.applications.forEach(application => {
+          application.casualWorker.id = application.casualWorker._id.toString();
+          application.approvingStaff.forEach(approvingStaff => {
+            approvingStaff.id = approvingStaff._id.toString(); // Convert _id directly to string
+          });
+        });
+        console.log(`found shift ${shift}`);
+        return shift;
+      } catch (err) {
+        throw err;
+      }
+    },
+
     getAllCampaigns: () => {
       return Campaigns.find({}).exec()
         .then(campaigns => {
@@ -72,6 +93,7 @@ const resolvers = {
         if (!name) {
           throw new Error('Name parameter is missing.');
         }
+        //Find staff by the name
         const staff = await Staff.find({ name: name }).exec();
         return staff; // Return the found staff which could be an empty array
       } catch (error) {
@@ -97,19 +119,19 @@ const resolvers = {
           throw new Error('Name and/or surname parameter is missing although required');
         }
         const specificStaff = await Staff.findOne({ name: name, surname: surname }).exec();
-        
+
         // Check if specificStaff is null or undefined, and handle appropriately
         if (!specificStaff) {
           // return a response for the case where specificStaff is null or undefined
           throw new Error('Staff not found');
         }
-    
+
         return specificStaff; // Return found staff
       } catch (err) {
         console.error("Error fetching specific staff ", err);
         throw err;
       }
-    },    
+    },
     getAllStaff: () => {
       return Staff.find({}).exec()
         .then(staff => {
@@ -138,7 +160,7 @@ const resolvers = {
         updatedAt: input.updatedAt
       });
       //set a field called id with the value of _id which is the mongodb automatically assigned id
-      newCampaign.id = newCampaign._id;
+      newCampaign.id = newCampaign._id.toString();
       //the following code until the campaign save might cause errors, in that case, just remove it
       if (input.shifts && input.shifts.length > 0) {
         input.shifts.forEach(shiftInput => {
@@ -189,14 +211,114 @@ const resolvers = {
           casualWorkDepartments,
           contacts
         });
-
+        // manually save staff ID to not cause discrepancies
+        newStaff.id = newStaff._id.toString();
         // Save new staff to the database directly through promise
         const savedStaff = await newStaff.save();
+        // debug to see saved staff
         console.log('New staff saved:', savedStaff);
+        // further debug to check discrepancies
+        console.log(`the staff id is ${savedStaff.id}, the staff _id is ${savedStaff._id}`);
         return savedStaff;
       } catch (err) {
         console.error('Error adding staff:', err);
         throw new Error(`Failed to add staff: ${err.message}`);
+      }
+    },
+    createShift: async (_, { input }) => {
+      try {
+        const { reference, brief, date, commence, conclusion, actualEndTime } = input;
+
+        // Create a new Shifts instance
+        const newShift = new Shifts({
+          reference,
+          brief,
+          date,
+          commence,
+          conclusion,
+          actualEndTime,
+        });
+        //manually store the Id to not cause discrepancies later on
+        newShift.id = newShift._id.toString();
+
+        // Save the new shift
+        const savedShift = await newShift.save();
+
+        console.log("Saved Shift: ", savedShift);
+
+        return savedShift;
+      } catch (err) {
+        console.error('Error adding shift:', err);
+        throw new Error(`Failed to add shift: ${err.message}`);
+      }
+    },
+    createApplication: async (_, { shiftId, casualWorkerId, approvingStaffsIds, input }) => {
+      try {
+        //try to find the Shift
+        const shift = await Shifts.findById(shiftId);
+        if (!shift) {
+          throw new Error("shift wasn't found");
+        }
+
+        //find the casual staff by ID
+        const casualStaff = await Staff.findById(casualWorkerId);
+        if (!casualStaff) {
+          throw new Error("Casual staff not found");
+        }
+
+        //find approving staffs
+        const approvingStaffs = await Staff.find({ _id: { $in: approvingStaffsIds } });
+        if (approvingStaffs.length !== approvingStaffsIds.length) {
+          const notFoundIds = approvingStaffsIds.filter(id => !approvingStaffs.find(staff => staff._id.equals(id)));
+          throw new Error(`Approving staff with IDs ${notFoundIds.join(', ')} not found`);
+        }
+
+        //Create the application instance
+        const application = new Applications({
+          casualWorker: casualStaff,
+          approvingStaff: approvingStaffs,
+          applicationStatus: input.applicationStatus
+        });
+        //manually store the id to avoid later discrepancies
+        application.id = application._id.toString();
+
+        // Update the shift with the new application ID (one to many relation)
+        shift.applications.push(application._id);
+
+        // Save the shift and application 
+        await shift.save();
+        await application.save();
+
+        // Populate the created application before returning
+        await application.populate('casualWorker approvingStaff');
+
+        // Return the populated application to view on the screen
+        return application;
+      } catch (error) {
+        //if an error is found instantly
+        throw new Error(`failed to create an application with error: ${error.message}`);
+      }
+    },
+    updateApplicationStatus: async (_, { input }) => {
+      try {
+        const { id, applicationStatus } = input;
+
+        // 1: Find the application by ID
+        const application = await Applications.findById(id);
+
+        // 2: Check if the application exists
+        if (!application) {
+          throw new Error("Application not found");
+        }
+
+        // 3: Update the application status
+        application.applicationStatus = applicationStatus;
+        await application.save();
+
+        // 4. Return the updated application
+        return application;
+      } catch (error) {
+        throw new Error(`Failed to update application: ${error.message}`);
       }
     }
 

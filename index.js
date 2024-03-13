@@ -41,7 +41,6 @@ async function retrieveSecretsAndStartServer() {
         const MONGODB_PASSWORD = passwordSecret.value;
 
         const connectionString = `mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_DB_URL}/${MONGODB_DEFAULT_DB}?authMechanism=${MONGODB_AUTH_MECHANISM}&authSource=${MONGODB_DEFAULT_GROUP}`;
-
         mongoose.set('debug', true);
         /*
           useNewUrlParser: true,

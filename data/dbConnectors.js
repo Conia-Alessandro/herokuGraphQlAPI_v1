@@ -46,29 +46,29 @@ const staffSchema = new mongoose.Schema({
         preferredTime: String
     }]
 });
-
-
-// Define the schema for Shift
-const shiftSchema = new mongoose.Schema({
-    brief: String,
-    date: Date,
-    commence: String,
-    conclusion: String,
-    actualEndTime: String,
-    coverage: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references to staff instead of directly storing it as before: [staffSchema]
-    applications: [{type:mongoose.Schema.Types.ObjectId , ref: 'Application'}] // References to Application instead of direct storing
-});
-
 // Define the schema for a Shift Application
 
 const applicationSchema = new mongoose.Schema({
-    casualStaff : { type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}, //references to staff
-    approvingStaff: [{type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references an array of staff
+    casualWorker : { type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}, //references to staff
+    approvingStaff: [{type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}], //references an array of staff
     applicationStatus: {
         type: String,
         enum: ["OPEN","APPLIED","PENDING","ASSIGNED","REJECTED"]
     }
 })
+
+// Define the schema for Shift
+const shiftSchema = new mongoose.Schema({
+    reference: String,
+    brief: String,
+    date: Date,
+    commence: String,
+    conclusion: String,
+    actualEndTime: String,
+    applications: [{type:mongoose.Schema.Types.ObjectId , ref: 'applications'}] // References to Application instead of direct storing
+});
+
+
 // Define the schema for Campaign
 const campaignSchema = new mongoose.Schema({
     name: String,
@@ -88,13 +88,13 @@ const campaignSchema = new mongoose.Schema({
         type: String,
         enum: ['ONCAMPUSACTIVITY', 'OPENDAY', 'FRESHERS', 'CAMPUSTOUR', 'VIRTUALTOUR', 'ONLINEEVENT', 'ONLINEWEBINAR', 'EXAMPERIOD', 'STUDYPERIOD', 'HOLIDAYIN', 'KEEPINTOUCH', 'SOCIETIESMEETUP', 'FESTIVALOFCULTURES']
     },
-    supervisingStaff: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references to staff instead of directly storing it
-    casualStaff: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Staff'}], //references to staff instead of directly storing it
+    supervisingStaff: [{ type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}], //references to staff instead of directly storing it
+    casualStaff: [{ type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}], //references to staff instead of directly storing it
     available: {
         type: Boolean,
         default: true
     },
-    shifts: [{ type: mongoose.Schema.Types.ObjectId , ref: 'Shifts'}], //references to Shifts instead of directly storing it [shiftSchema]
+    shifts: [{ type: mongoose.Schema.Types.ObjectId , ref: 'shifts'}], //references to Shifts instead of directly storing it [shiftSchema]
     postedDate: {
         type: Date,
         default: getUKTime(0)
@@ -107,9 +107,13 @@ const campaignSchema = new mongoose.Schema({
 });
 
 // Define the model
+const Applications = mongoose.model("applications",applicationSchema);
 const Campaigns = mongoose.model("campaigns", campaignSchema);
 const Staff = mongoose.model("staffs", staffSchema);
 const Shifts = mongoose.model("shifts", shiftSchema);
-const Applications = mongoose.model("applications",applicationSchema);
+
+//Debug the models
+console.log(mongoose.models)
+
 // Export both models
 module.exports = { Campaigns, Staff, Shifts, Applications };
