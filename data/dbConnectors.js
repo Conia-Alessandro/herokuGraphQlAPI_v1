@@ -50,22 +50,51 @@ const staffSchema = new mongoose.Schema({
 
 const applicationSchema = new mongoose.Schema({
     casualWorker : { type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}, //references to staff
-    approvingStaff: [{type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}], //references an array of staff
+    supervisors: [{type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}], //references an array of staff
     applicationStatus: {
         type: String,
-        enum: ["OPEN","APPLIED","PENDING","ASSIGNED","REJECTED"]
-    }
+        enum: ["OPEN","OFFERED","APPLIED","PENDING","ASSIGNED","REJECTED","TURNEDDOWN","CLOSED"]
+    },
+    appliedAt:{
+        type:Date,
+        default: getUKTime(0)
+    },
+    turndownReason:{
+        type: String,
+        default: ""
+    },
+    comment:{
+        type: String,
+        default: ""
+    },
+    approvedBySupervisor: [{type: mongoose.Schema.Types.ObjectId , ref: 'staffs'}]
 })
 
 // Define the schema for Shift
 const shiftSchema = new mongoose.Schema({
+    status:{
+        type: String,
+        enum: ["OPEN","CLOSED"]
+    },
     reference: String,
     brief: String,
     date: Date,
     commence: String,
     conclusion: String,
     actualEndTime: String,
-    applications: [{type:mongoose.Schema.Types.ObjectId , ref: 'applications'}] // References to Application instead of direct storing
+    applications: [{type:mongoose.Schema.Types.ObjectId , ref: 'applications'}], // References to Application instead of direct storing
+    totalApplications:{
+        type: Number,
+        default: 0
+    },
+    postedAt:{
+        type:Date,
+        default: getUKTime(0)
+    },
+    deadLine:{
+        type:Date,
+        default: getUKTime(7) //defaults to a week
+    }
 });
 
 

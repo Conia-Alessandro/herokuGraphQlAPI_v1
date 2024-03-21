@@ -112,14 +112,15 @@ const schema = buildSchema(`
     """
     Enum representing the shift Status
     recently changed to
-    "OPEN","APPLIED","PENDING","ASSIGNED", "REJECTED"
+    "OPEN","APPLIED","PENDING","ASSIGNED", "REJECTED" , "CLOSED" , "TURNEDDOWN"
     """
     enum ApplicationStatus{
-        OPEN
+        OFFERED
         APPLIED
         PENDING
         ASSIGNED
         REJECTED
+        TURNEDDOWN
     }
     """
     Type representing a Shift application between the casual worker and his supervisor
@@ -130,15 +131,31 @@ const schema = buildSchema(`
         "the casual worker applied / to apply"
         casualWorker: Staff
         "the Staff responsible to approve , has to be at least one person"
-        approvingStaff: [Staff!]!
+        supervisors: [Staff!]!
         "the status of the application, an Enum with different values"
         applicationStatus: ApplicationStatus!
+        "The date of the application, subject to change with each application"
+        appliedAt: Date
+        "The reason for turndown of the shift"
+        turndownReason : String
+        "any additional comment made for the shift application"
+        comment: String
+        "The staff that approved the application, has to be the same as approving staff"
+        approvedBySupervisor: [Staff!]!
+    }
+    """
+    An Enum representing the shift status, a shift could either be OPEN or CLOSED depending on the deadline date.
+    """
+    enum ShiftStatus{
+        OPEN
+        CLOSED
     }
     """ 
     Type representing a shift object
     """
     type Shift{
         id: ID!
+        status: ShiftStatus
         reference: String!
         brief: String!
         date: Date!
@@ -148,6 +165,12 @@ const schema = buildSchema(`
         actualEndTime: String
         "The list of applications made for that shift"
         applications: [Application!]!
+        "the total number of applications, the number is determined by applications"
+        totalApplications: Int
+        "the date of which the shift was created"
+        postedAt: Date
+        "the deadline for all shift applications"
+        deadLine: Date
     }
     """
     The query type, used to retrieve data
@@ -167,6 +190,8 @@ const schema = buildSchema(`
         getAllStaff: [Staff]
         "an operation to return a shift by id"
         getShift(id: ID): Shift
+        "an operation to return all shifts"
+        getAllShifts: [Shift]
         "an operation to return a shift by its unique reference name"
         getShiftByReference(reference: String): Shift
     }
@@ -232,6 +257,7 @@ const schema = buildSchema(`
         commence: String!
         conclusion: String!
         actualEndTime: String
+        deadLine: Date
     }
     """
     The application input
@@ -239,6 +265,8 @@ const schema = buildSchema(`
     input ApplicationInput{
         id: ID
         applicationStatus: ApplicationStatus!
+        comment: String
+        reason: String
     }
     """
     the mutation type, used to mutate (create/update/delete) information
@@ -251,7 +279,7 @@ const schema = buildSchema(`
         "a mutation to create a shift"
         createShift(input: addShiftInput) : Shift
         "creates an Application for a shift , in resolvers"
-        createApplication(shiftId: ID!, casualWorkerId:ID!, approvingStaffsIds:[ID!]!, input: ApplicationInput!): Application
+        createApplication(shiftId: ID!, casualWorkerId:ID!, supervisorsIds:[ID!]!, input: ApplicationInput!): Application
         "updates the application's status"
         updateApplicationStatus(input: ApplicationInput!): Application
     }

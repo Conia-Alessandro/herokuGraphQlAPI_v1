@@ -58,18 +58,18 @@ const resolvers = {
     },
     getShiftByReference: async (_, { reference }) => { // using '_,' as no parent object is expected
       try {
-        //populate the shift with applications, casualStaff and approvingStaff
+        //populate the shift with applications, casualStaff and supervisors
         const shift = await Shifts.findOne({ reference })
           .populate({
             path: 'applications',
-            populate: { path: 'casualWorker approvingStaff' }
+            populate: { path: 'casualWorker supervisors' }
           })
           .exec();
         // Convert IDs to strings
         shift.applications.forEach(application => {
           application.casualWorker.id = application.casualWorker._id.toString();
-          application.approvingStaff.forEach(approvingStaff => {
-            approvingStaff.id = approvingStaff._id.toString(); // Convert _id directly to string
+          application.supervisors.forEach(supervisor => {
+            supervisor.id = supervisor._id.toString(); // Convert _id directly to string
           });
         });
         console.log(`found shift ${shift}`);
@@ -78,7 +78,28 @@ const resolvers = {
         throw err;
       }
     },
-
+    getAllShifts: async (_) => {
+      // Fetch all shifts with populated applications
+      const shifts = await Shifts.find({}).populate({
+          path: 'applications',
+          populate: { path: 'casualWorker supervisors approvedBySupervisor' }
+      }).exec();
+  
+      // Convert IDs to strings for each application, in each shift
+      shifts.forEach(shift => {
+          shift.applications.forEach(application => {
+              application.casualWorker.id = application.casualWorker._id.toString();
+              application.supervisors.forEach(supervisor => {
+                  supervisor.id = supervisor._id.toString();
+              });
+              application.approvedBySupervisor.forEach(approvingSupervisor =>{
+                approvingSupervisor.id = approvingSupervisor._id.toString();
+              })
+          });
+      });
+  
+      return shifts;
+  },
     getAllCampaigns: () => {
       return Campaigns.find({}).exec()
         .then(campaigns => {
@@ -227,8 +248,8 @@ const resolvers = {
     },
     createShift: async (_, { input }) => {
       try {
-        const { reference, brief, date, commence, conclusion, actualEndTime } = input;
-
+        const { reference, brief, date, commence, conclusion, actualEndTime, deadLine } = input;
+        const todaysDate = new Date();
         // Create a new Shifts instance
         const newShift = new Shifts({
           reference,
@@ -237,9 +258,17 @@ const resolvers = {
           commence,
           conclusion,
           actualEndTime,
+          deadLine
         });
         //manually store the Id to not cause discrepancies later on
         newShift.id = newShift._id.toString();
+        
+        // set Status
+        if(deadLine > todaysDate){
+          newShift.status = "OPEN";
+        }else{
+          newShift.status = "CLOSED";
+        }
 
         // Save the new shift
         const savedShift = await newShift.save();
@@ -252,7 +281,7 @@ const resolvers = {
         throw new Error(`Failed to add shift: ${err.message}`);
       }
     },
-    createApplication: async (_, { shiftId, casualWorkerId, approvingStaffsIds, input }) => {
+    createApplication: async (_, { shiftId, casualWorkerId, supervisorsIds, input }) => {
       try {
         //try to find the Shift
         const shift = await Shifts.findById(shiftId);
@@ -267,30 +296,40 @@ const resolvers = {
         }
 
         //find approving staffs
-        const approvingStaffs = await Staff.find({ _id: { $in: approvingStaffsIds } });
-        if (approvingStaffs.length !== approvingStaffsIds.length) {
-          const notFoundIds = approvingStaffsIds.filter(id => !approvingStaffs.find(staff => staff._id.equals(id)));
+        const supervisors = await Staff.find({ _id: { $in: supervisorsIds } });
+        if (supervisors.length !== supervisorsIds.length) {
+          const notFoundIds = supervisorsIds.filter(id => !supervisors.find(staff => staff._id.equals(id)));
           throw new Error(`Approving staff with IDs ${notFoundIds.join(', ')} not found`);
         }
 
         //Create the application instance
         const application = new Applications({
           casualWorker: casualStaff,
-          approvingStaff: approvingStaffs,
+          supervisors: supervisors,
           applicationStatus: input.applicationStatus
         });
+        //if casual worker / staff added a comment or reason behind the application creation and or update
+        if(input.comment){
+          application.comment = input.comment;
+        }
+        if(input.turndownReason){
+          application.turndownReason = input.turndownReason;
+        }
         //manually store the id to avoid later discrepancies
         application.id = application._id.toString();
 
         // Update the shift with the new application ID (one to many relation)
         shift.applications.push(application._id);
 
+        // Increment the totalApplications count
+        shift.totalApplications++;
+
         // Save the shift and application 
         await shift.save();
         await application.save();
 
         // Populate the created application before returning
-        await application.populate('casualWorker approvingStaff');
+        await application.populate('casualWorker supervisors approvedBySupervisor');
 
         // Return the populated application to view on the screen
         return application;
