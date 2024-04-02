@@ -144,11 +144,17 @@ const schema = buildSchema(`
         approvedBySupervisor: [Staff!]!
     }
     """
-    An Enum representing the shift status, a shift could either be OPEN or CLOSED depending on the deadline date.
+    An Enum representing the shift status, a shift could either be 
+    OPEN = Todays date is earlier than the deadline (and Shift Date)
+    COMMENCING = Todays date is the same as Shift Date
+    CLOSED = Todays date is bigger or the same as the deadline (but still earlier than Shift Date)
+    CONCLUDED = Today's date is Bigger than the shift Date 
     """
     enum ShiftStatus{
         OPEN
+        COMMENCING
         CLOSED
+        CONCLUDED
     }
     """ 
     Type representing a shift object

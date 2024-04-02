@@ -47,9 +47,24 @@ const resolvers = {
     },
     getShift: async (_, { id }) => {
       try {
-        const shift = await Shifts.findById(id).exec();
+        const shift = await Shifts.findById(id)
+        .populate({
+          path: 'applications',
+          populate: { path: 'casualWorker supervisors' }
+        })
+        .exec();
+         // Convert IDs to strings
+         shift.applications.forEach(application => {
+          application.casualWorker.id = application.casualWorker._id.toString();
+          application.supervisors.forEach(supervisor => {
+            supervisor.id = supervisor._id.toString(); // Convert _id directly to string
+          });
+        });
         if (!shift) {
           throw new Error("Shift not found");
+        }
+        else{
+          console.log(`found ${shift}`);
         }
         return shift;
       } catch (err) {

@@ -74,7 +74,7 @@ const applicationSchema = new mongoose.Schema({
 const shiftSchema = new mongoose.Schema({
     status:{
         type: String,
-        enum: ["OPEN","CLOSED"]
+        enum: ["OPEN","COMMENCING","CLOSED", "CONCLUDED"]
     },
     reference: String,
     brief: String,
