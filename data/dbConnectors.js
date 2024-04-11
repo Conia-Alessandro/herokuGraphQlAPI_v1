@@ -74,9 +74,11 @@ const applicationSchema = new mongoose.Schema({
 const shiftSchema = new mongoose.Schema({
     status:{
         type: String,
-        enum: ["OPEN","COMMENCING","CLOSED", "CONCLUDED"]
+        enum: ["OPEN","COMMENCING","CLOSED", "CONCLUDED"],
+        default: "OPEN"
     },
     reference: String,
+    name: String,
     brief: String,
     date: Date,
     commence: String,
@@ -94,7 +96,8 @@ const shiftSchema = new mongoose.Schema({
     deadLine:{
         type:Date,
         default: getUKTime(7) //defaults to a week
-    }
+    },
+    createdBy: String
 });
 
 

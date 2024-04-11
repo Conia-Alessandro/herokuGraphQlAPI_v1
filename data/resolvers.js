@@ -3,6 +3,35 @@ const { Campaigns, Staff, Shifts, Applications } = require("./dbConnectors"); //
 const { GraphQLScalarType, Kind } = require('graphql');
 const mongoose = require("mongoose");
 
+// Function to convert 12-hour format to 24-hour format
+function convertTo24Hour(time) {
+  // Ensure the input is a string
+  if (typeof time !== 'string') {
+    console.error('Time input is not a string:', time);
+    return null; // or a default value, depending on your requirements
+  }
+
+  // Attempt to split the time string into components
+  let parts = time.match(/(\d+)(?::(\d\d))?\s*(AM|PM)?/i);
+  if (!parts) {
+    console.error('Time input format is incorrect:', time);
+    return null; // or a default value
+  }
+
+  let hours = parseInt(parts[1], 10);
+  let modifier = parts[3]; // AM or PM
+
+  // If time is in PM and hours < 12, convert to 24-hour format by adding 12
+  if (modifier && modifier.toUpperCase() === 'PM' && hours < 12) {
+    hours += 12;
+  } else if (modifier && modifier.toUpperCase() === 'AM' && hours === 12) {
+    // If time is 12AM, convert to 0 hours for 24-hour format
+    hours = 0;
+  }
+
+  return hours;
+}
+
 const DateScalar = new GraphQLScalarType({
   name: 'Date',
   description: 'Date, a custom scalar type that identifies a date in the format DD/MM/YYYY',
@@ -263,17 +292,19 @@ const resolvers = {
     },
     createShift: async (_, { input }) => {
       try {
-        const { reference, brief, date, commence, conclusion, actualEndTime, deadLine } = input;
+        const { reference, name, brief, date, commence, conclusion, actualEndTime, deadLine ,createdBy} = input;
         const todaysDate = new Date();
         // Create a new Shifts instance
         const newShift = new Shifts({
+          name,
           reference,
           brief,
           date,
           commence,
           conclusion,
           actualEndTime,
-          deadLine
+          deadLine,
+          createdBy
         });
         //manually store the Id to not cause discrepancies later on
         newShift.id = newShift._id.toString();
@@ -374,8 +405,106 @@ const resolvers = {
       } catch (error) {
         throw new Error(`Failed to update application: ${error.message}`);
       }
+    },
+    updateShiftsStatus: async (_) => {
+      try {
+        const shifts = await Shifts.find({}).populate({
+          path: 'applications',
+          populate: { path: 'casualWorker supervisors approvedBySupervisor' }
+        }).exec();
+        const currentHour = new Date().getHours(); // Gets the current hour in 24-hour format
+    
+        shifts.forEach(async (shift) => {
+          // Convert commence and conclusion times to 24-hour format
+          const commenceHour = convertTo24Hour(shift.commence);
+          const conclusionHour = convertTo24Hour(shift.conclusion);
+    
+          // Current date and shift date for comparison
+          const currentDate = new Date(new Date().toDateString());
+          const shiftDate = new Date(shift.date.toDateString());
+          const deadlineDate = new Date(shift.deadLine.toDateString()); // Make sure to define deadlineDate
+          console.log({
+            currentDate, shiftDate, deadlineDate, commenceHour, conclusionHour, currentHour
+          });
+          
+          // Check if today's date matches the shift date
+          if (currentDate.getTime() === shiftDate.getTime()) {
+            // It's the day of the shift
+            
+            if (currentHour >= commenceHour && currentHour < conclusionHour) {
+              shift.status = "COMMENCING";
+            } else if (currentHour >= conclusionHour) {
+              shift.status = "CONCLUDED";
+            }
+          } else if (currentDate > shiftDate) {
+            // It's after the shift date
+            shift.status = "CONCLUDED";
+          } else if (currentDate > deadlineDate) {
+            // It's past the deadline but before the shift date
+            if (shift.status !== "CONCLUDED") {
+              shift.status = "CLOSED";
+            }
+          } else {
+            // It's before the deadline
+            if (shift.status !== "CONCLUDED" && shift.status !== "CLOSED") {
+              shift.status = "OPEN";
+            }
+          }
+    
+          await shift.save();
+        });
+    
+        return shifts; // Return the updated list of shifts
+      } catch (error) {
+        throw new Error(`Failed to update shift statuses: ${error.message}`);
+      }
+    },
+    updateAllShiftStatuses: async () => {
+      try {
+        const shifts = await Shifts.find({}).populate({
+          path: 'applications',
+          populate: { path: 'casualWorker supervisors approvedBySupervisor' }
+        }).exec();
+        const currentHour = new Date().getHours(); // Gets the current hour in 24-hour format
+  
+        shifts.forEach((shift) => {
+          // Logic to update shift status
+          const commenceHour = convertTo24Hour(shift.commence);
+          const conclusionHour = convertTo24Hour(shift.conclusion);
+          const currentDate = new Date(new Date().toDateString());
+          const shiftDate = new Date(shift.date.toDateString());
+          const deadlineDate = new Date(shift.deadLine.toDateString()); // Ensure deadlineDate is defined
+  
+          if (currentDate.getTime() === shiftDate.getTime()) {
+            if (currentHour >= commenceHour && currentHour < conclusionHour) {
+              shift.status = "COMMENCING";
+            } else if (currentHour >= conclusionHour) {
+              shift.status = "CONCLUDED";
+            } else {
+              shift.status = "CLOSED";
+            }
+          } else {
+            if (currentDate > deadlineDate && currentDate < shiftDate) {
+              shift.status = "CLOSED";
+            } else if (currentDate > shiftDate) {
+              shift.status = "CONCLUDED";
+            } else {
+              shift.status = "OPEN";
+            }
+          }
+  
+          // Note: Not awaiting here, fire and forget for now
+          shift.save().catch(err => console.error(`Error saving shift ${shift._id}:`, err));
+        });
+  
+        // Since we're not awaiting the saves, just return true immediately
+        return true;
+      } catch (error) {
+        console.error(`Failed to update shift statuses: ${error.message}`);
+        return false; // Indicate failure
+      }
     }
-
+      
     //modify campaign also updates the updatedAt automatically to current date (view GetUkDate)
   }
 }

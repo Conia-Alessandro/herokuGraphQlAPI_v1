@@ -163,6 +163,7 @@ const schema = buildSchema(`
         id: ID!
         status: ShiftStatus
         reference: String!
+        name: String!
         brief: String!
         date: Date!
         commence: String!
@@ -177,6 +178,8 @@ const schema = buildSchema(`
         postedAt: Date
         "the deadline for all shift applications"
         deadLine: Date
+        "represents who created the shift"
+        createdBy: String
     }
     """
     The query type, used to retrieve data
@@ -229,6 +232,7 @@ const schema = buildSchema(`
     input ShiftInput{
         id: ID
         reference: String
+        name: String!
         brief: String!
         date: Date!
         commence: String!
@@ -258,12 +262,14 @@ const schema = buildSchema(`
     input addShiftInput{
         id: ID
         reference: String!
+        name: String!
         brief: String!
         date: Date!
         commence: String!
         conclusion: String!
         actualEndTime: String
         deadLine: Date
+        createdBy: String!
     }
     """
     The application input
@@ -274,6 +280,7 @@ const schema = buildSchema(`
         comment: String
         reason: String
     }
+
     """
     the mutation type, used to mutate (create/update/delete) information
     """
@@ -288,6 +295,10 @@ const schema = buildSchema(`
         createApplication(shiftId: ID!, casualWorkerId:ID!, supervisorsIds:[ID!]!, input: ApplicationInput!): Application
         "updates the application's status"
         updateApplicationStatus(input: ApplicationInput!): Application
+        "updates the shift's status for a shift"
+        updateShiftsStatus: [Shift]
+        "updates all shift Statuses without returning the array of shifts, returns true or false for error handling"
+        updateAllShiftStatuses: Boolean
     }
 `)
 
