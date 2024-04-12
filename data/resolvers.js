@@ -77,13 +77,13 @@ const resolvers = {
     getShift: async (_, { id }) => {
       try {
         const shift = await Shifts.findById(id)
-        .populate({
-          path: 'applications',
-          populate: { path: 'casualWorker supervisors' }
-        })
-        .exec();
-         // Convert IDs to strings
-         shift.applications.forEach(application => {
+          .populate({
+            path: 'applications',
+            populate: { path: 'casualWorker supervisors' }
+          })
+          .exec();
+        // Convert IDs to strings
+        shift.applications.forEach(application => {
           application.casualWorker.id = application.casualWorker._id.toString();
           application.supervisors.forEach(supervisor => {
             supervisor.id = supervisor._id.toString(); // Convert _id directly to string
@@ -92,7 +92,7 @@ const resolvers = {
         if (!shift) {
           throw new Error("Shift not found");
         }
-        else{
+        else {
           console.log(`found ${shift}`);
         }
         return shift;
@@ -125,25 +125,25 @@ const resolvers = {
     getAllShifts: async (_) => {
       // Fetch all shifts with populated applications
       const shifts = await Shifts.find({}).populate({
-          path: 'applications',
-          populate: { path: 'casualWorker supervisors approvedBySupervisor' }
+        path: 'applications',
+        populate: { path: 'casualWorker supervisors approvedBySupervisor' }
       }).exec();
-  
+
       // Convert IDs to strings for each application, in each shift
       shifts.forEach(shift => {
-          shift.applications.forEach(application => {
-              application.casualWorker.id = application.casualWorker._id.toString();
-              application.supervisors.forEach(supervisor => {
-                  supervisor.id = supervisor._id.toString();
-              });
-              application.approvedBySupervisor.forEach(approvingSupervisor =>{
-                approvingSupervisor.id = approvingSupervisor._id.toString();
-              })
+        shift.applications.forEach(application => {
+          application.casualWorker.id = application.casualWorker._id.toString();
+          application.supervisors.forEach(supervisor => {
+            supervisor.id = supervisor._id.toString();
           });
+          application.approvedBySupervisor.forEach(approvingSupervisor => {
+            approvingSupervisor.id = approvingSupervisor._id.toString();
+          })
+        });
       });
-  
+
       return shifts;
-  },
+    },
     getAllCampaigns: () => {
       return Campaigns.find({}).exec()
         .then(campaigns => {
@@ -292,7 +292,7 @@ const resolvers = {
     },
     createShift: async (_, { input }) => {
       try {
-        const { reference, name, brief, date, commence, conclusion, actualEndTime, deadLine ,createdBy} = input;
+        const { reference, name, brief, date, commence, conclusion, actualEndTime, deadLine, createdBy } = input;
         const todaysDate = new Date();
         // Create a new Shifts instance
         const newShift = new Shifts({
@@ -308,11 +308,11 @@ const resolvers = {
         });
         //manually store the Id to not cause discrepancies later on
         newShift.id = newShift._id.toString();
-        
+
         // set Status
-        if(deadLine > todaysDate){
+        if (deadLine > todaysDate) {
           newShift.status = "OPEN";
-        }else{
+        } else {
           newShift.status = "CLOSED";
         }
 
@@ -355,10 +355,10 @@ const resolvers = {
           applicationStatus: input.applicationStatus
         });
         //if casual worker / staff added a comment or reason behind the application creation and or update
-        if(input.comment){
+        if (input.comment) {
           application.comment = input.comment;
         }
-        if(input.turndownReason){
+        if (input.turndownReason) {
           application.turndownReason = input.turndownReason;
         }
         //manually store the id to avoid later discrepancies
@@ -413,24 +413,36 @@ const resolvers = {
           populate: { path: 'casualWorker supervisors approvedBySupervisor' }
         }).exec();
         const currentHour = new Date().getHours(); // Gets the current hour in 24-hour format
-    
+
+        //Correct local date at midnight
+        const now = new Date();
+        const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); 
+
         shifts.forEach(async (shift) => {
           // Convert commence and conclusion times to 24-hour format
           const commenceHour = convertTo24Hour(shift.commence);
           const conclusionHour = convertTo24Hour(shift.conclusion);
-    
-          // Current date and shift date for comparison
-          const currentDate = new Date(new Date().toDateString());
-          const shiftDate = new Date(shift.date.toDateString());
-          const deadlineDate = new Date(shift.deadLine.toDateString()); // Make sure to define deadlineDate
+
+          //const currentDate = new Date(new Date().toDateString());
+
+          // Create Date objects from the MongoDB ISO strings
+          const shiftDate = new Date(shift.date);
+          shiftDate.setUTCHours(0, 0, 0, 0); // Reset hours to midnight UTC
+          const deadlineDate = new Date(shift.deadLine);
+          deadlineDate.setUTCHours(0, 0, 0, 0);
+          /*
           console.log({
-            currentDate, shiftDate, deadlineDate, commenceHour, conclusionHour, currentHour
+            currentDate: currentDate.toLocaleDateString('en-GB'), // UK date format
+            shiftDate: shiftDate.toLocaleDateString('en-GB'),
+            deadlineDate: deadlineDate.toLocaleDateString('en-GB'),
+            commenceHour, conclusionHour, currentHour
           });
-          
+          */
+
           // Check if today's date matches the shift date
           if (currentDate.getTime() === shiftDate.getTime()) {
             // It's the day of the shift
-            
+
             if (currentHour >= commenceHour && currentHour < conclusionHour) {
               shift.status = "COMMENCING";
             } else if (currentHour >= conclusionHour) {
@@ -450,10 +462,10 @@ const resolvers = {
               shift.status = "OPEN";
             }
           }
-    
+
           await shift.save();
         });
-    
+
         return shifts; // Return the updated list of shifts
       } catch (error) {
         throw new Error(`Failed to update shift statuses: ${error.message}`);
@@ -466,7 +478,7 @@ const resolvers = {
           populate: { path: 'casualWorker supervisors approvedBySupervisor' }
         }).exec();
         const currentHour = new Date().getHours(); // Gets the current hour in 24-hour format
-  
+
         shifts.forEach((shift) => {
           // Logic to update shift status
           const commenceHour = convertTo24Hour(shift.commence);
@@ -474,7 +486,7 @@ const resolvers = {
           const currentDate = new Date(new Date().toDateString());
           const shiftDate = new Date(shift.date.toDateString());
           const deadlineDate = new Date(shift.deadLine.toDateString()); // Ensure deadlineDate is defined
-  
+
           if (currentDate.getTime() === shiftDate.getTime()) {
             if (currentHour >= commenceHour && currentHour < conclusionHour) {
               shift.status = "COMMENCING";
@@ -492,11 +504,11 @@ const resolvers = {
               shift.status = "OPEN";
             }
           }
-  
+
           // Note: Not awaiting here, fire and forget for now
           shift.save().catch(err => console.error(`Error saving shift ${shift._id}:`, err));
         });
-  
+
         // Since we're not awaiting the saves, just return true immediately
         return true;
       } catch (error) {
@@ -504,7 +516,7 @@ const resolvers = {
         return false; // Indicate failure
       }
     }
-      
+
     //modify campaign also updates the updatedAt automatically to current date (view GetUkDate)
   }
 }
