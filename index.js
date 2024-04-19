@@ -37,8 +37,8 @@ async function retrieveSecretsAndStartServer() {
             secretClient.getSecret(MONGODB_PASSWORD_SECRET_NAME)
         ]);
         // Store retrieved secret values
-        const MONGODB_USERNAME = usernameSecret.value;
-        const MONGODB_PASSWORD = passwordSecret.value;
+        const MONGODB_USERNAME = usernameSecret.value /* || "manualValueUsername" */;
+        const MONGODB_PASSWORD = passwordSecret.value /* || "manualValuePassword" */;;
 
         const connectionString = `mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_DB_URL}/${MONGODB_DEFAULT_DB}?authMechanism=${MONGODB_AUTH_MECHANISM}&authSource=${MONGODB_DEFAULT_GROUP}`;
         mongoose.set('debug', true);
